@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PanPastel 全色号核对工具</title>
+    <title>PanPastel 囤货清单</title>
     <style>
         :root { 
             --primary: #6c5ce7; 
@@ -12,19 +12,18 @@
             --owned-border: #38b2ac; 
             --text-main: #2d3436;
         }
-        body { font-family: -apple-system, "SF Pro Text", sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); -webkit-user-select: none; user-select: none; }
         .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         
         .header { text-align: center; margin-bottom: 20px; }
-        .header h2 { margin: 0; color: var(--primary); font-size: 1.5rem; }
+        .header h2 { margin: 0; color: var(--primary); }
         
         .search-box { 
             display: flex; gap: 8px; position: sticky; top: 10px; 
             background: white; padding: 10px 0; z-index: 100; border-bottom: 2px solid var(--bg);
             margin-bottom: 15px;
         }
-        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; transition: 0.2s; }
-        input:focus { border-color: var(--primary); }
+        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; }
         .add-btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
         
         .category-title { 
@@ -34,159 +33,63 @@
         .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
         
         .color-card { 
-            padding: 12px 8px; border: 1px solid #edf2f7; border-radius: 10px; 
+            padding: 15px 8px; border: 1px solid #edf2f7; border-radius: 10px; 
             display: flex; flex-direction: column; align-items: center; cursor: pointer;
-            transition: all 0.2s ease; background: #fff; position: relative;
+            transition: all 0.1s ease; background: #fff; position: relative;
         }
-        .color-card:active { transform: scale(0.95); }
+        .color-card:active { transform: scale(0.95); background: #f0f0f0; }
         
-        .color-card.is-owned { 
-            background: var(--owned-bg); border: 2px solid var(--owned-border); 
-            box-shadow: 0 2px 5px rgba(56, 178, 172, 0.2);
-        }
-        .color-card.is-owned::after { 
-            content: "✓"; position: absolute; top: 4px; right: 6px; 
-            color: var(--owned-border); font-size: 12px; font-weight: bold; 
-        }
+        /* 已购样式 */
+        .color-card.is-owned { background: var(--owned-bg); border: 2px solid var(--owned-border); }
         
-        .color-no { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
-        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; height: 2.4em; overflow: hidden; }
+        /* 数量角标 */
+        .count-badge {
+            position: absolute; top: -5px; right: -5px;
+            background: #ff7675; color: white; min-width: 20px; height: 20px;
+            border-radius: 10px; font-size: 12px; display: flex;
+            align-items: center; justify-content: center; font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
 
-        .summary-bar { 
-            margin-top: 30px; padding: 15px; background: var(--primary); 
-            color: white; border-radius: 10px; text-align: center; font-size: 0.9rem;
-        }
+        .color-no { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
+        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; pointer-events: none; }
+
+        .summary-bar { margin-top: 30px; padding: 15px; background: var(--primary); color: white; border-radius: 10px; text-align: center; }
+        .tip { font-size: 11px; color: #a0aec0; text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h2>PanPastel 色号清单</h2>
+        <h2>PanPastel 库存管理</h2>
     </div>
 
     <div class="search-box">
-        <input type="text" id="colorInput" placeholder="输入色号 (如: 220.5)" inputmode="decimal">
-        <button class="add-btn" onclick="toggleByInput()">标记</button>
+        <input type="text" id="colorInput" placeholder="输入色号添加 (如: 100.5)" inputmode="decimal">
+        <button class="add-btn" onclick="toggleByInput()">增加</button>
     </div>
 
     <div id="mainDisplay"></div>
     
     <div class="summary-bar" id="summary"></div>
-    <button onclick="clearAll()" style="width:100%; margin-top:10px; background:none; border:none; color:#a0aec0; font-size:12px; cursor:pointer;">清空所有已购记录</button>
+    <div class="tip">💡 提示：点击色块增加数量，长按或右键减少数量</div>
+    <button onclick="clearAll()" style="width:100%; margin-top:20px; background:none; border:none; color:#ff7675; font-size:12px; cursor:pointer;">清空所有库存数据</button>
 </div>
 
 <script>
     const PAN_DATABASE = {
-        // 基础与灰阶
-        "100.5": { name: "Titanium White", cat: "基础/灰阶" },
-        "800.5": { name: "Black", cat: "基础/灰阶" },
-        "820.2": { name: "Neutral Grey Ex.Dark", cat: "基础/灰阶" },
-        "820.5": { name: "Neutral Grey", cat: "基础/灰阶" },
-        "820.7": { name: "Neutral Grey Tint", cat: "基础/灰阶" },
-        "820.8": { name: "Neutral Grey Tint", cat: "基础/灰阶" },
-        "840.3": { name: "Payne's Grey Shade", cat: "基础/灰阶" },
-        "840.7": { name: "Payne's Grey Tint", cat: "基础/灰阶" },
-        "840.8": { name: "Payne's Grey Tint", cat: "基础/灰阶" },
-        "010": { name: "Colorless Blender", cat: "基础/灰阶" },
-
-        // 黄色与橙色系
-        "220.1": { name: "Hansa Yellow Ex.Dark", cat: "黄/橙系" },
-        "220.3": { name: "Hansa Yellow Shade", cat: "黄/橙系" },
-        "220.5": { name: "Hansa Yellow", cat: "黄/橙系" },
-        "220.8": { name: "Hansa Yellow Tint", cat: "黄/橙系" },
-        "250.1": { name: "Diarylide Yellow Ex.Dark", cat: "黄/橙系" },
-        "250.3": { name: "Diarylide Yellow Shade", cat: "黄/橙系" },
-        "250.5": { name: "Diarylide Yellow", cat: "黄/橙系" },
-        "250.8": { name: "Diarylide Yellow Tint", cat: "黄/橙系" },
-        "270.1": { name: "Yellow Ochre Ex.Dark", cat: "黄/橙系" },
-        "270.3": { name: "Yellow Ochre Shade", cat: "黄/橙系" },
-        "270.5": { name: "Yellow Ochre", cat: "黄/橙系" },
-        "270.8": { name: "Yellow Ochre Tint", cat: "黄/橙系" },
-        "280.1": { name: "Orange Ex.Dark", cat: "黄/橙系" },
-        "280.3": { name: "Orange Shade", cat: "黄/橙系" },
-        "280.5": { name: "Orange", cat: "黄/橙系" },
-        "280.8": { name: "Orange Tint", cat: "黄/橙系" },
-
-        // 红色与紫色系
-        "340.1": { name: "Permanent Red Ex.Dark", cat: "红/紫系" },
-        "340.3": { name: "Permanent Red Shade", cat: "红/紫系" },
-        "340.5": { name: "Permanent Red", cat: "红/紫系" },
-        "340.8": { name: "Permanent Red Tint", cat: "红/紫系" },
-        "380.1": { name: "Red Iron Oxide Ex.Dark", cat: "红/紫系" },
-        "380.3": { name: "Red Iron Oxide Shade", cat: "红/紫系" },
-        "380.5": { name: "Red Iron Oxide", cat: "红/紫系" },
-        "380.8": { name: "Red Iron Oxide Tint", cat: "红/紫系" },
-        "430.1": { name: "Magenta Ex.Dark", cat: "红/紫系" },
-        "430.3": { name: "Magenta Shade", cat: "红/紫系" },
-        "430.5": { name: "Magenta", cat: "红/紫系" },
-        "430.8": { name: "Magenta Tint", cat: "红/紫系" },
-        "470.1": { name: "Violet Ex.Dark", cat: "红/紫系" },
-        "470.3": { name: "Violet Shade", cat: "红/紫系" },
-        "470.5": { name: "Violet", cat: "红/紫系" },
-        "470.8": { name: "Violet Tint", cat: "红/紫系" },
-
-        // 蓝色系
-        "520.1": { name: "Ultramarine Blue Ex.Dark", cat: "蓝系" },
-        "520.3": { name: "Ultramarine Blue Shade", cat: "蓝系" },
-        "520.5": { name: "Ultramarine Blue", cat: "蓝系" },
-        "520.8": { name: "Ultramarine Blue Tint", cat: "蓝系" },
-        "560.1": { name: "Phthalo Blue Ex.Dark", cat: "蓝系" },
-        "560.3": { name: "Phthalo Blue Shade", cat: "蓝系" },
-        "560.5": { name: "Phthalo Blue", cat: "蓝系" },
-        "560.8": { name: "Phthalo Blue Tint", cat: "蓝系" },
-        "580.1": { name: "Turquoise Ex.Dark", cat: "蓝系" },
-        "580.3": { name: "Turquoise Shade", cat: "蓝系" },
-        "580.5": { name: "Turquoise", cat: "蓝系" },
-        "580.8": { name: "Turquoise Tint", cat: "蓝系" },
-
-        // 绿色系
-        "620.1": { name: "Phthalo Green Ex.Dark", cat: "绿系" },
-        "620.3": { name: "Phthalo Green Shade", cat: "绿系" },
-        "620.5": { name: "Phthalo Green", cat: "绿系" },
-        "620.8": { name: "Phthalo Green Tint", cat: "绿系" },
-        "640.1": { name: "Permanent Green Ex.Dark", cat: "绿系" },
-        "640.3": { name: "Permanent Green Shade", cat: "绿系" },
-        "640.5": { name: "Permanent Green", cat: "绿系" },
-        "640.8": { name: "Permanent Green Tint", cat: "绿系" },
-        "660.1": { name: "Chromium Oxide Green Ex.Dark", cat: "绿系" },
-        "660.3": { name: "Chromium Oxide Green Shade", cat: "绿系" },
-        "660.5": { name: "Chromium Oxide Green", cat: "绿系" },
-        "660.8": { name: "Chromium Oxide Green Tint", cat: "绿系" },
-        "680.1": { name: "Bright Yellow Green Ex.Dark", cat: "绿系" },
-        "680.3": { name: "Bright Yellow Green Shade", cat: "绿系" },
-        "680.5": { name: "Bright Yellow Green", cat: "绿系" },
-        "680.8": { name: "Bright Yellow Green Tint", cat: "绿系" },
-
-        // 大地色与棕色系
-        "740.1": { name: "Burnt Sienna Ex.Dark", cat: "大地/棕色系" },
-        "740.3": { name: "Burnt Sienna Shade", cat: "大地/棕色系" },
-        "740.5": { name: "Burnt Sienna", cat: "大地/棕色系" },
-        "740.8": { name: "Burnt Sienna Tint", cat: "大地/棕色系" },
-        "780.1": { name: "Raw Umber Ex.Dark", cat: "大地/棕色系" },
-        "780.3": { name: "Raw Umber Shade", cat: "大地/棕色系" },
-        "780.5": { name: "Raw Umber", cat: "大地/棕色系" },
-        "780.8": { name: "Raw Umber Tint", cat: "大地/棕色系" },
-
-        // 金属色与珠光系
-        "910.5": { name: "Light Gold", cat: "金属/珠光系" },
-        "911.5": { name: "Rich Gold", cat: "金属/珠光系" },
-        "920.5": { name: "Silver", cat: "金属/珠光系" },
-        "921.5": { name: "Copper", cat: "金属/珠光系" },
-        "930.5": { name: "Bronze", cat: "金属/珠光系" },
-        "931.5": { name: "Pewter", cat: "金属/珠光系" },
-        "951.5": { name: "Pearlescent White", cat: "金属/珠光系" },
-        "952.5": { name: "Pearlescent Yellow", cat: "金属/珠光系" },
-        "953.5": { name: "Pearlescent Orange", cat: "金属/珠光系" },
-        "954.5": { name: "Pearlescent Red", cat: "金属/珠光系" },
-        "955.5": { name: "Pearlescent Violet", cat: "金属/珠光系" },
-        "956.5": { name: "Pearlescent Blue", cat: "金属/珠光系" },
-        "957.5": { name: "Pearlescent Green", cat: "金属/珠光系" },
-        "011": { name: "Pearl Medium Fine", cat: "金属/珠光系" },
-        "012": { name: "Pearl Medium Coarse", cat: "金属/珠光系" }
+        "100.5": { name: "Titanium White", cat: "基础/灰阶" }, "800.5": { name: "Black", cat: "基础/灰阶" }, "820.2": { name: "Neutral Grey Ex.Dark", cat: "基础/灰阶" }, "820.5": { name: "Neutral Grey", cat: "基础/灰阶" }, "820.7": { name: "Neutral Grey Tint", cat: "基础/灰阶" }, "820.8": { name: "Neutral Grey Tint", cat: "基础/灰阶" }, "840.3": { name: "Payne's Grey Shade", cat: "基础/灰阶" }, "840.7": { name: "Payne's Grey Tint", cat: "基础/灰阶" }, "840.8": { name: "Payne's Grey Tint", cat: "基础/灰阶" }, "010": { name: "Colorless Blender", cat: "基础/灰阶" },
+        "220.1": { name: "Hansa Yellow Ex.Dark", cat: "黄/橙系" }, "220.3": { name: "Hansa Yellow Shade", cat: "黄/橙系" }, "220.5": { name: "Hansa Yellow", cat: "黄/橙系" }, "220.8": { name: "Hansa Yellow Tint", cat: "黄/橙系" }, "250.1": { name: "Diarylide Yellow Ex.Dark", cat: "黄/橙系" }, "250.3": { name: "Diarylide Yellow Shade", cat: "黄/橙系" }, "250.5": { name: "Diarylide Yellow", cat: "黄/橙系" }, "250.8": { name: "Diarylide Yellow Tint", cat: "黄/橙系" }, "270.1": { name: "Yellow Ochre Ex.Dark", cat: "黄/橙系" }, "270.3": { name: "Yellow Ochre Shade", cat: "黄/橙系" }, "270.5": { name: "Yellow Ochre", cat: "黄/橙系" }, "270.8": { name: "Yellow Ochre Tint", cat: "黄/橙系" }, "280.1": { name: "Orange Ex.Dark", cat: "黄/橙系" }, "280.3": { name: "Orange Shade", cat: "黄/橙系" }, "280.5": { name: "Orange", cat: "黄/橙系" }, "280.8": { name: "Orange Tint", cat: "黄/橙系" },
+        "340.1": { name: "Permanent Red Ex.Dark", cat: "红/紫系" }, "340.3": { name: "Permanent Red Shade", cat: "红/紫系" }, "340.5": { name: "Permanent Red", cat: "红/紫系" }, "340.8": { name: "Permanent Red Tint", cat: "红/紫系" }, "380.1": { name: "Red Iron Oxide Ex.Dark", cat: "红/紫系" }, "380.3": { name: "Red Iron Oxide Shade", cat: "红/紫系" }, "380.5": { name: "Red Iron Oxide", cat: "红/紫系" }, "380.8": { name: "Red Iron Oxide Tint", cat: "红/紫系" }, "430.1": { name: "Magenta Ex.Dark", cat: "红/紫系" }, "430.3": { name: "Magenta Shade", cat: "红/紫系" }, "430.5": { name: "Magenta", cat: "红/紫系" }, "430.8": { name: "Magenta Tint", cat: "红/紫系" }, "470.1": { name: "Violet Ex.Dark", cat: "红/紫系" }, "470.3": { name: "Violet Shade", cat: "红/紫系" }, "470.5": { name: "Violet", cat: "红/紫系" }, "470.8": { name: "Violet Tint", cat: "红/紫系" },
+        "520.1": { name: "Ultramarine Blue Ex.Dark", cat: "蓝系" }, "520.3": { name: "Ultramarine Blue Shade", cat: "蓝系" }, "520.5": { name: "Ultramarine Blue", cat: "蓝系" }, "520.8": { name: "Ultramarine Blue Tint", cat: "蓝系" }, "560.1": { name: "Phthalo Blue Ex.Dark", cat: "蓝系" }, "560.3": { name: "Phthalo Blue Shade", cat: "蓝系" }, "560.5": { name: "Phthalo Blue", cat: "蓝系" }, "560.8": { name: "Phthalo Blue Tint", cat: "蓝系" }, "580.1": { name: "Turquoise Ex.Dark", cat: "蓝系" }, "580.3": { name: "Turquoise Shade", cat: "蓝系" }, "580.5": { name: "Turquoise", cat: "蓝系" }, "580.8": { name: "Turquoise Tint", cat: "蓝系" },
+        "620.1": { name: "Phthalo Green Ex.Dark", cat: "绿系" }, "620.3": { name: "Phthalo Green Shade", cat: "绿系" }, "620.5": { name: "Phthalo Green", cat: "绿系" }, "620.8": { name: "Phthalo Green Tint", cat: "绿系" }, "640.1": { name: "Permanent Green Ex.Dark", cat: "绿系" }, "640.3": { name: "Permanent Green Shade", cat: "绿系" }, "640.5": { name: "Permanent Green", cat: "绿系" }, "640.8": { name: "Permanent Green Tint", cat: "绿系" }, "660.1": { name: "Chromium Oxide Green Ex.Dark", cat: "绿系" }, "660.3": { name: "Chromium Oxide Green Shade", cat: "绿系" }, "660.5": { name: "Chromium Oxide Green", cat: "绿系" }, "660.8": { name: "Chromium Oxide Green Tint", cat: "绿系" }, "680.1": { name: "Bright Yellow Green Ex.Dark", cat: "绿系" }, "680.3": { name: "Bright Yellow Green Shade", cat: "绿系" }, "680.5": { name: "Bright Yellow Green", cat: "绿系" }, "680.8": { name: "Bright Yellow Green Tint", cat: "绿系" },
+        "740.1": { name: "Burnt Sienna Ex.Dark", cat: "大地/棕色系" }, "740.3": { name: "Burnt Sienna Shade", cat: "大地/棕色系" }, "740.5": { name: "Burnt Sienna", cat: "大地/棕色系" }, "740.8": { name: "Burnt Sienna Tint", cat: "大地/棕色系" }, "780.1": { name: "Raw Umber Ex.Dark", cat: "大地/棕色系" }, "780.3": { name: "Raw Umber Shade", cat: "大地/棕色系" }, "780.5": { name: "Raw Umber", cat: "大地/棕色系" }, "780.8": { name: "Raw Umber Tint", cat: "大地/棕色系" },
+        "910.5": { name: "Light Gold", cat: "金属/珠光系" }, "911.5": { name: "Rich Gold", cat: "金属/珠光系" }, "920.5": { name: "Silver", cat: "金属/珠光系" }, "921.5": { name: "Copper", cat: "金属/珠光系" }, "930.5": { name: "Bronze", cat: "金属/珠光系" }, "931.5": { name: "Pewter", cat: "金属/珠光系" }, "951.5": { name: "Pearlescent White", cat: "金属/珠光系" }, "952.5": { name: "Pearlescent Yellow", cat: "金属/珠光系" }, "953.5": { name: "Pearlescent Orange", cat: "金属/珠光系" }, "954.5": { name: "Pearlescent Red", cat: "金属/珠光系" }, "955.5": { name: "Pearlescent Violet", cat: "金属/珠光系" }, "956.5": { name: "Pearlescent Blue", cat: "金属/珠光系" }, "957.5": { name: "Pearlescent Green", cat: "金属/珠光系" }, "011": { name: "Pearl Medium Fine", cat: "金属/珠光系" }, "012": { name: "Pearl Medium Coarse", cat: "金属/珠光系" }
     };
 
-    let ownedColors = JSON.parse(localStorage.getItem('panOwned97')) || [];
+    // 数据结构改为：{ "色号": 数量 }
+    let inventory = JSON.parse(localStorage.getItem('panInventoryV3')) || {};
 
     function render() {
         const display = document.getElementById('mainDisplay');
@@ -204,34 +107,47 @@
         order.forEach(catName => {
             if (!categories[catName]) return;
             const section = document.createElement('div');
-            section.innerHTML = `<div class="category-title"><span>${catName}</span><span>(${categories[catName].filter(n=>ownedColors.includes(n)).length}/${categories[catName].length})</span></div>`;
+            const catOwnedCount = categories[catName].filter(n => inventory[n] > 0).length;
+            section.innerHTML = `<div class="category-title"><span>${catName}</span><span>(${catOwnedCount}/${categories[catName].length})</span></div>`;
             const grid = document.createElement('div');
             grid.className = 'color-grid';
             
             categories[catName].forEach(no => {
-                const isOwned = ownedColors.includes(no);
+                const count = inventory[no] || 0;
                 const card = document.createElement('div');
-                card.className = `color-card ${isOwned ? 'is-owned' : ''}`;
+                card.className = `color-card ${count > 0 ? 'is-owned' : ''}`;
                 card.innerHTML = `
+                    ${count > 1 ? `<div class="count-badge">${count}</div>` : (count === 1 ? `<div class="count-badge">1</div>` : '')}
                     <div class="color-no">${no}</div>
                     <div class="color-name">${PAN_DATABASE[no].name}</div>
                 `;
-                card.onclick = () => updateOwned(no);
+                
+                // 左键/点击：增加
+                card.onclick = (e) => { addCount(no); e.preventDefault(); };
+                // 右键/长按：减少
+                card.oncontextmenu = (e) => { subCount(no); e.preventDefault(); };
+                
                 grid.appendChild(card);
             });
             section.appendChild(grid);
             display.appendChild(section);
         });
         
-        document.getElementById('summary').innerText = `全部色库: ${Object.keys(PAN_DATABASE).length} 色 | 已点亮: ${ownedColors.length} 色`;
-        localStorage.setItem('panOwned97', JSON.stringify(ownedColors));
+        const totalOwned = Object.values(inventory).filter(v => v > 0).length;
+        const totalItems = Object.values(inventory).reduce((a, b) => a + b, 0);
+        document.getElementById('summary').innerText = `已购种类: ${totalOwned} | 库存总量: ${totalItems}`;
+        localStorage.setItem('panInventoryV3', JSON.stringify(inventory));
     }
 
-    function updateOwned(no) {
-        if (ownedColors.includes(no)) {
-            ownedColors = ownedColors.filter(i => i !== no);
-        } else {
-            ownedColors.push(no);
+    function addCount(no) {
+        inventory[no] = (inventory[no] || 0) + 1;
+        render();
+    }
+
+    function subCount(no) {
+        if (inventory[no] && inventory[no] > 0) {
+            inventory[no] -= 1;
+            if (inventory[no] === 0) delete inventory[no];
         }
         render();
     }
@@ -239,19 +155,18 @@
     function toggleByInput() {
         const input = document.getElementById('colorInput');
         const val = input.value.trim();
-        if (!val) return;
         if (PAN_DATABASE[val]) {
-            updateOwned(val);
-            document.querySelector(`div[onclick*="${val}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            addCount(val);
+            document.querySelector(`div[onclick*="addCount('${val}')"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
-            alert("未在 PanPastel 标准库中找到该色号。请检查输入是否正确（如 220.5）。");
+            alert("色库中没找到这个号哦，请检查一下~");
         }
         input.value = '';
     }
 
     function clearAll() {
-        if(confirm("确定要清空所有已购记录吗？")) {
-            ownedColors = [];
+        if(confirm("确定要清空所有库存吗？这将无法恢复！")) {
+            inventory = {};
             render();
         }
     }
