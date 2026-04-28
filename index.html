@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PanPastel 全色号管理库</title>
+    <style>
+        :root { --primary: #4a90e2; --bg: #f4f7f6; --owned: #27ae60; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        
+        .header { text-align: center; margin-bottom: 25px; }
+        .search-box { display: flex; gap: 8px; position: sticky; top: 10px; background: white; padding: 10px 0; z-index: 100; border-bottom: 1px solid #eee; }
+        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 6px; }
+        
+        .category-title { background: #eee; padding: 8px 15px; border-radius: 5px; margin: 20px 0 10px; font-weight: bold; color: #555; }
+        .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+        
+        .color-card { 
+            padding: 10px; border: 1px solid #eee; border-radius: 8px; 
+            display: flex; flex-direction: column; align-items: center; transition: 0.2s; position: relative;
+        }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ccc; margin-bottom: 5px; }
+        .is-owned { border: 2px solid var(--owned); background: #f0fff4; }
+        .is-owned .status-dot { background: var(--owned); }
+        .is-owned::after { content: "✓ 已购"; position: absolute; top: 2px; right: 5px; font-size: 10px; color: var(--owned); font-weight: bold; }
+        
+        .color-no { font-size: 0.9em; font-weight: bold; }
+        .color-name { font-size: 0.75em; color: #777; text-align: center; }
+
+        .summary { font-size: 0.9em; margin-top: 20px; color: #666; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2>🎨 PanPastel 库库对碰</h2>
+        <p>输入色号点亮你的收藏</p>
+    </div>
+
+    <div class="search-box">
+        <input type="text" id="colorInput" placeholder="输入色号 (如: 100.5)" onkeypress="if(event.keyCode==13) toggleOwn()">
+        <button onclick="toggleOwn()" style="padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">标记/取消</button>
+    </div>
+
+    <div id="mainDisplay"></div>
+    <div class="summary" id="summary"></div>
+</div>
+
+<script>
+    // 官方 92 色简化数据库 (示例部分，已包含核心分类逻辑)
+    // 格式: 色号: { name: 英文名, cat: 分类 }
+    const PAN_DATABASE = {
+        "100.5": { name: "Titanium White", cat: "基础/白黑" },
+        "800.5": { name: "Black", cat: "基础/白黑" },
+        "220.5": { name: "Hansa Yellow", cat: "黄/橙系" },
+        "220.3": { name: "Hansa Yellow Shade", cat: "黄/橙系" },
+        "270.5": { name: "Diarylide Yellow", cat: "黄/橙系" },
+        "280.5": { name: "Orange", cat: "黄/橙系" },
+        "340.5": { name: "Permanent Red", cat: "红/紫系" },
+        "340.8": { name: "Permanent Red Tint", cat: "红/紫系" },
+        "380.5": { name: "Red Iron Oxide", cat: "红/紫系" },
+        "430.5": { name: "Magenta", cat: "红/紫系" },
+        "470.5": { name: "Violet", cat: "红/紫系" },
+        "520.5": { name: "Ultramarine Blue", cat: "蓝系" },
+        "560.5": { name: "Phthalo Blue", cat: "蓝系" },
+        "580.5": { name: "Turquoise", cat: "蓝系" },
+        "620.5": { name: "Phthalo Green", cat: "绿系" },
+        "640.5": { name: "Permanent Green", cat: "绿系" },
+        "680.5": { name: "Bright Yellow Green", cat: "绿系" },
+        "740.5": { name: "Burnt Sienna", cat: "大地/棕色系" },
+        "780.5": { name: "Raw Umber", cat: "大地/棕色系" },
+        "010": { name: "Colorless Blender", cat: "媒介/特殊" }
+        // 注意：为了篇幅，这里列出了核心代表色，你可以按照这个格式继续补充全 92 色
+    };
+
+    let ownedColors = JSON.parse(localStorage.getItem('panOwned')) || [];
+
+    function render() {
+        const display = document.getElementById('mainDisplay');
+        display.innerHTML = '';
+        
+        // 按分类整理数据
+        const categories = {};
+        Object.keys(PAN_DATABASE).forEach(no => {
+            const cat = PAN_DATABASE[no].cat;
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(no);
+        });
+
+        for (let cat in categories) {
+            const section = document.createElement('div');
+            section.innerHTML = `<div class="category-title">${cat}</div>`;
+            const grid = document.createElement('div');
+            grid.className = 'color-grid';
+            
+            categories[cat].forEach(no => {
+                const isOwned = ownedColors.includes(no);
+                const card = document.createElement('div');
+                card.className = `color-card ${isOwned ? 'is-owned' : ''}`;
+                card.innerHTML = `
+                    <div class="status-dot"></div>
+                    <div class="color-no">${no}</div>
+                    <div class="color-name">${PAN_DATABASE[no].name}</div>
+                `;
+                card.onclick = () => updateOwned(no);
+                grid.appendChild(card);
+            });
+            section.appendChild(grid);
+            display.appendChild(section);
+        }
+        
+        document.getElementById('summary').innerText = `全部色库: ${Object.keys(PAN_DATABASE).length} | 已入: ${ownedColors.length}`;
+        localStorage.setItem('panOwned', JSON.stringify(ownedColors));
+    }
+
+    function updateOwned(no) {
+        if (ownedColors.includes(no)) {
+            ownedColors = ownedColors.filter(i => i !== no);
+        } else {
+            ownedColors.push(no);
+        }
+        render();
+    }
+
+    function toggleOwn() {
+        const input = document.getElementById('colorInput');
+        const val = input.value.trim();
+        if (!val) return;
+
+        if (PAN_DATABASE[val]) {
+            updateOwned(val);
+        } else {
+            if(confirm(`色库中未找到色号 ${val}，是否将其作为自定义色号添加？`)) {
+                PAN_DATABASE[val] = { name: "自定义颜色", cat: "其他/自定义" };
+                updateOwned(val);
+            }
+        }
+        input.value = '';
+    }
+
+    render();
+</script>
+
+</body>
+</html>
