@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PanPastel 全系库存管理</title>
+    <title>PanPastel 库存管理(支持跨设备备份)</title>
     <style>
         :root { --primary: #6c5ce7; --bg: #f0f2f5; --owned-bg: #e6fffa; --owned-border: #38b2ac; --text-main: #2d3436; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); -webkit-user-select: none; user-select: none; }
@@ -12,34 +12,55 @@
         .search-box { display: flex; gap: 8px; position: sticky; top: 10px; background: white; padding: 10px 0; z-index: 100; border-bottom: 2px solid var(--bg); margin-bottom: 15px; }
         input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; }
         .add-btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        
+        /* 备份工具栏 */
+        .backup-tools { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
+        .tool-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--primary); color: var(--primary); border-radius: 5px; background: none; cursor: pointer; }
+
         .category-title { background: #f8f9fa; border-left: 5px solid var(--primary); padding: 10px 15px; margin: 25px 0 12px; font-weight: bold; font-size: 0.95rem; display: flex; justify-content: space-between; }
         .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
         .color-card { padding: 15px 8px; border: 1px solid #edf2f7; border-radius: 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.1s ease; background: #fff; position: relative; }
-        .color-card:active { transform: scale(0.95); background: #f0f0f0; }
         .color-card.is-owned { background: var(--owned-bg); border: 2px solid var(--owned-border); }
         .count-badge { position: absolute; top: -5px; right: -5px; background: #ff7675; color: white; min-width: 20px; height: 20px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
         .color-no { font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; }
-        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; height: 2.4em; }
-        .summary-bar { margin-top: 30px; padding: 15px; background: var(--primary); color: white; border-radius: 10px; text-align: center; }
-        .tip { font-size: 11px; color: #a0aec0; text-align: center; margin-top: 10px; }
+        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; height: 2.4em; overflow: hidden; }
+        
+        .summary-bar { margin-top: 30px; padding: 20px; background: var(--primary); color: white; border-radius: 12px; text-align: center; }
+        .summary-grid { display: flex; justify-content: space-around; font-size: 0.9rem; font-weight: bold; }
+        .summary-item span { display: block; font-size: 1.2rem; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header"><h2>PanPastel 库存管理 (全色系增强版)</h2></div>
+    <div class="header"><h2>PanPastel 库存管理</h2></div>
+    
+    <!-- 新增备份按钮 -->
+    <div class="backup-tools">
+        <button class="tool-btn" onclick="exportData()">📤 导出备份(换设备用)</button>
+        <button class="tool-btn" onclick="importData()">📥 导入备份</button>
+    </div>
+
     <div class="search-box">
-        <input type="text" id="colorInput" placeholder="输入色号 (如: 23106 或 310.6)" inputmode="decimal">
+        <input type="text" id="colorInput" placeholder="输入色号(如 310.6)" inputmode="decimal">
         <button class="add-btn" onclick="toggleByInput()">增加</button>
     </div>
+
     <div id="mainDisplay"></div>
-    <div class="summary-bar" id="summary"></div>
-    <div class="tip">💡 点击增加，长按或右键减少数量。支持输入 5 位序列号或带小数点的色号。</div>
-    <button onclick="clearAll()" style="width:100%; margin-top:20px; background:none; border:none; color:#ff7675; font-size:12px; cursor:pointer;">清空所有库存数据</button>
+    
+    <div class="summary-bar">
+        <div class="summary-grid">
+            <div class="summary-item">种类<span id="statKinds">0</span></div>
+            <div class="summary-item">总量<span id="statTotal">0</span></div>
+            <div class="summary-item">进度<span id="statPercent">0%</span></div>
+        </div>
+    </div>
+
+    <button onclick="clearAll()" style="width:100%; margin-top:25px; background:none; border:none; color:#ff7675; font-size:12px; cursor:pointer;">清空数据</button>
 </div>
 
 <script>
-    const PAN_DATABASE = {
+      const PAN_DATABASE = {
         // 灰阶/基础
         "100.5": { name: "Titanium White", cat: "灰阶/基础" },
         "800.5": { name: "Black", cat: "灰阶/基础" },
@@ -178,6 +199,36 @@
 
     let inventory = JSON.parse(localStorage.getItem('panInventoryV3')) || {};
 
+    // --- 新增：备份导出功能 ---
+    function exportData() {
+        if (Object.keys(inventory).length === 0) return alert("当前没有库存数据可导出。");
+        const dataStr = btoa(JSON.stringify(inventory)); // 简单编码
+        const tempInput = document.createElement("input");
+        document.body.appendChild(tempInput);
+        tempInput.value = dataStr;
+        tempInput.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempInput);
+        alert("备份代码已复制到剪贴板！\n请发给新设备或存入备忘录。");
+    }
+
+    // --- 新增：备份导入功能 ---
+    function importData() {
+        const code = prompt("请粘贴备份代码：");
+        if (code) {
+            try {
+                const imported = JSON.parse(atob(code));
+                if (confirm("导入将覆盖当前设备的数据，确定吗？")) {
+                    inventory = imported;
+                    render();
+                    alert("同步成功！");
+                }
+            } catch (e) {
+                alert("无效的代码，请检查是否复制完整。");
+            }
+        }
+    }
+
     function render() {
         const display = document.getElementById('mainDisplay');
         display.innerHTML = '';
@@ -187,16 +238,21 @@
             if (!cats[c]) cats[c] = [];
             cats[c].push(no);
         });
+
         const order = ["灰阶/基础", "黄/橙系", "红/紫系", "蓝系", "绿系", "大地/棕色系", "珠光/金属系"];
+        let totalItems = 0; let totalKinds = 0;
+        const totalPossible = Object.keys(PAN_DATABASE).length;
+
         order.forEach(cName => {
             if (!cats[cName]) return;
             const ownedInCat = cats[cName].filter(n => inventory[n] > 0).length;
             const section = document.createElement('div');
-            section.innerHTML = `<div class="category-title"><span>${cName}</span><span>(${ownedInCat}/${cats[cName].length})</span></div>`;
+            section.innerHTML = `<div class="category-title"><span>${cName}</span><span>${ownedInCat}/${cats[cName].length}</span></div>`;
             const grid = document.createElement('div');
             grid.className = 'color-grid';
             cats[cName].forEach(no => {
                 const count = inventory[no] || 0;
+                if(count > 0) { totalKinds++; totalItems += count; }
                 const card = document.createElement('div');
                 card.className = `color-card ${count > 0 ? 'is-owned' : ''}`;
                 card.innerHTML = `${count > 0 ? `<div class="count-badge">${count}</div>` : ''}<div class="color-no">${no}</div><div class="color-name">${PAN_DATABASE[no].name}</div>`;
@@ -204,32 +260,24 @@
                 card.oncontextmenu = (e) => { sub(no); e.preventDefault(); };
                 grid.appendChild(card);
             });
-            section.appendChild(grid);
-            display.appendChild(section);
+            section.appendChild(grid); display.appendChild(section);
         });
-        const totalKinds = Object.keys(inventory).filter(k => inventory[k] > 0 && PAN_DATABASE[k]).length;
-        const totalItems = Object.values(inventory).reduce((a, b) => a + b, 0);
-        document.getElementById('summary').innerText = `已入种类: ${totalKinds} | 库存总量: ${totalItems}`;
+
+        document.getElementById('statKinds').innerText = totalKinds;
+        document.getElementById('statTotal').innerText = totalItems;
+        document.getElementById('statPercent').innerText = Math.round((totalKinds / totalPossible) * 100) + '%';
         localStorage.setItem('panInventoryV3', JSON.stringify(inventory));
     }
 
     function add(no) { inventory[no] = (inventory[no] || 0) + 1; render(); }
     function sub(no) { if(inventory[no] > 0) { inventory[no] -= 1; if(inventory[no] === 0) delete inventory[no]; } render(); }
-
     function toggleByInput() {
         const input = document.getElementById('colorInput');
         let val = input.value.trim();
-        // 自动转换 5 位序列号
         if (SERIES_MAP[val]) val = SERIES_MAP[val];
-        if (PAN_DATABASE[val]) {
-            add(val);
-            document.querySelector(`div[onclick*="add('${val}')"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } else {
-            alert("未找到该色号。请尝试输入带小数点的格式（如 310.6）");
-        }
+        if (PAN_DATABASE[val]) { add(val); } else { alert("找不到该色号"); }
         input.value = '';
     }
-
     function clearAll() { if(confirm("确定清空吗？")) { inventory = {}; render(); } }
     render();
 </script>
