@@ -8,59 +8,69 @@
         :root { --primary: #6c5ce7; --bg: #f0f2f5; --owned-bg: #e6fffa; --owned-border: #38b2ac; --text-main: #2d3436; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); -webkit-user-select: none; user-select: none; }
         .container { max-width: 950px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .header { text-align: center; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header h2 { margin: 0; font-size: 1.2rem; }
+        
+        /* 备份工具栏 */
+        .backup-tools { display: flex; gap: 8px; }
+        .tool-btn { font-size: 11px; padding: 4px 10px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; color: #666; }
+        .tool-btn:hover { border-color: var(--primary); color: var(--primary); }
+
         .search-box { display: flex; gap: 8px; position: sticky; top: 10px; background: white; padding: 10px 0; z-index: 100; border-bottom: 2px solid var(--bg); margin-bottom: 15px; }
         input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; }
         .add-btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
         
-        /* 备份工具栏 */
-        .backup-tools { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        .tool-btn { font-size: 12px; padding: 5px 12px; border: 1px solid var(--primary); color: var(--primary); border-radius: 5px; background: none; cursor: pointer; }
-
-        .category-title { background: #f8f9fa; border-left: 5px solid var(--primary); padding: 10px 15px; margin: 25px 0 12px; font-weight: bold; font-size: 0.95rem; display: flex; justify-content: space-between; }
-        .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+        .category-title { background: #f8f9fa; border-left: 5px solid var(--primary); padding: 10px 15px; margin: 25px 0 12px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; }
+        .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 10px; }
         .color-card { padding: 15px 8px; border: 1px solid #edf2f7; border-radius: 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.1s ease; background: #fff; position: relative; }
         .color-card.is-owned { background: var(--owned-bg); border: 2px solid var(--owned-border); }
-        .count-badge { position: absolute; top: -5px; right: -5px; background: #ff7675; color: white; min-width: 20px; height: 20px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .color-no { font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; }
+        .count-badge { position: absolute; top: -5px; right: -5px; background: #ff7675; color: white; min-width: 20px; height: 20px; border-radius: 10px; font-size: 11px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; }
+        
+        .color-no { font-size: 0.85rem; font-weight: 800; margin-bottom: 4px; }
         .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; height: 2.4em; overflow: hidden; }
         
-        .summary-bar { margin-top: 30px; padding: 20px; background: var(--primary); color: white; border-radius: 12px; text-align: center; }
-        .summary-grid { display: flex; justify-content: space-around; font-size: 0.9rem; font-weight: bold; }
-        .summary-item span { display: block; font-size: 1.2rem; margin-top: 5px; }
+        /* 底部统计栏：放在进度旁边 */
+        .summary-bar { margin-top: 30px; padding: 18px; background: var(--primary); color: white; border-radius: 12px; box-shadow: 0 4px 15px rgba(108, 92, 231, 0.2); }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; text-align: center; }
+        .summary-item { font-size: 0.75rem; opacity: 0.9; }
+        .summary-item b { display: block; font-size: 1.1rem; margin-top: 4px; opacity: 1; }
+
+        .tip { font-size: 11px; color: #a0aec0; text-align: center; margin-top: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header"><h2>PanPastel 库存管理</h2></div>
-    
-    <!-- 新增备份按钮 -->
-    <div class="backup-tools">
-        <button class="tool-btn" onclick="exportData()">📤 导出备份(换设备用)</button>
-        <button class="tool-btn" onclick="importData()">📥 导入备份</button>
+    <div class="header">
+        <h2>PanPastel 库存管理</h2>
+        <div class="backup-tools">
+            <button class="tool-btn" onclick="exportData()">备份(导出)</button>
+            <button class="tool-btn" onclick="importData()">同步(导入)</button>
+        </div>
     </div>
-
+    
     <div class="search-box">
-        <input type="text" id="colorInput" placeholder="输入色号(如 310.6)" inputmode="decimal">
+        <input type="text" id="colorInput" placeholder="输入色号或5位序列号" inputmode="decimal">
         <button class="add-btn" onclick="toggleByInput()">增加</button>
     </div>
 
     <div id="mainDisplay"></div>
     
+    <!-- 统计栏：总量放在进度旁边 -->
     <div class="summary-bar">
         <div class="summary-grid">
-            <div class="summary-item">种类<span id="statKinds">0</span></div>
-            <div class="summary-item">总量<span id="statTotal">0</span></div>
-            <div class="summary-item">进度<span id="statPercent">0%</span></div>
+            <div class="summary-item">已入种类<b id="statKinds">0</b></div>
+            <div class="summary-item">库存总量<b id="statTotal">0</b></div>
+            <div class="summary-item">全系完成度<b id="statPercent">0%</b></div>
         </div>
     </div>
 
-    <button onclick="clearAll()" style="width:100%; margin-top:25px; background:none; border:none; color:#ff7675; font-size:12px; cursor:pointer;">清空数据</button>
+    <div class="tip">💡 点击增加，长按或右键减少数量</div>
+    <button onclick="clearAll()" style="width:100%; margin-top:25px; background:none; border:none; color:#bbb; font-size:10px; cursor:pointer;">清空所有本地数据</button>
 </div>
 
 <script>
-      const PAN_DATABASE = {
+     const PAN_DATABASE = {
         // 灰阶/基础
         "100.5": { name: "Titanium White", cat: "灰阶/基础" },
         "800.5": { name: "Black", cat: "灰阶/基础" },
@@ -199,33 +209,31 @@
 
     let inventory = JSON.parse(localStorage.getItem('panInventoryV3')) || {};
 
-    // --- 新增：备份导出功能 ---
+    // 导出备份：将当前数据编码为一段文本，方便跨手机发送
     function exportData() {
-        if (Object.keys(inventory).length === 0) return alert("当前没有库存数据可导出。");
-        const dataStr = btoa(JSON.stringify(inventory)); // 简单编码
-        const tempInput = document.createElement("input");
-        document.body.appendChild(tempInput);
-        tempInput.value = dataStr;
-        tempInput.select();
+        if (Object.keys(inventory).length === 0) return alert("没有数据可以导出哦。");
+        const code = btoa(JSON.stringify(inventory));
+        const dummy = document.createElement("input");
+        document.body.appendChild(dummy);
+        dummy.value = code;
+        dummy.select();
         document.execCommand("copy");
-        document.body.removeChild(tempInput);
-        alert("备份代码已复制到剪贴板！\n请发给新设备或存入备忘录。");
+        document.body.removeChild(dummy);
+        alert("🎉 备份代码已复制！\n请发送到新手机或保存到备忘录。");
     }
 
-    // --- 新增：备份导入功能 ---
+    // 导入备份：在新手机上粘贴代码恢复数据
     function importData() {
         const code = prompt("请粘贴备份代码：");
         if (code) {
             try {
-                const imported = JSON.parse(atob(code));
-                if (confirm("导入将覆盖当前设备的数据，确定吗？")) {
-                    inventory = imported;
+                const data = JSON.parse(atob(code));
+                if(confirm("导入后将覆盖当前手机的数据，确认吗？")) {
+                    inventory = data;
                     render();
-                    alert("同步成功！");
+                    alert("✅ 数据已同步！");
                 }
-            } catch (e) {
-                alert("无效的代码，请检查是否复制完整。");
-            }
+            } catch(e) { alert("代码不对，请确认是否复制完整。"); }
         }
     }
 
@@ -239,7 +247,7 @@
             cats[c].push(no);
         });
 
-        const order = ["灰阶/基础", "黄/橙系", "红/紫系", "蓝系", "绿系", "大地/棕色系", "珠光/金属系"];
+        const order = ["基础/灰阶", "黄/橙系", "红/紫系", "蓝系", "绿系", "大地/棕色系", "珠光/金属系"];
         let totalItems = 0; let totalKinds = 0;
         const totalPossible = Object.keys(PAN_DATABASE).length;
 
@@ -275,7 +283,7 @@
         const input = document.getElementById('colorInput');
         let val = input.value.trim();
         if (SERIES_MAP[val]) val = SERIES_MAP[val];
-        if (PAN_DATABASE[val]) { add(val); } else { alert("找不到该色号"); }
+        if (PAN_DATABASE[val]) { add(val); } else { alert("数据库里没这个色号哦"); }
         input.value = '';
     }
     function clearAll() { if(confirm("确定清空吗？")) { inventory = {}; render(); } }
