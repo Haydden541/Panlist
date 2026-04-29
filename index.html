@@ -3,26 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PanPastel 全色系进度管理</title>
+    <title>PanPastel 库存管理(精准控制版)</title>
     <style>
         :root { --primary: #6c5ce7; --bg: #f0f2f5; --owned-bg: #e6fffa; --owned-border: #38b2ac; --text-main: #2d3436; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); -webkit-user-select: none; user-select: none; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text-main); }
         .container { max-width: 950px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         .header { text-align: center; margin-bottom: 20px; }
         .backup-tools { display: flex; gap: 10px; margin-bottom: 20px; justify-content: center; }
-        .tool-btn { font-size: 11px; padding: 6px 12px; border: 1px solid #ddd; color: #666; border-radius: 6px; background: #fff; cursor: pointer; transition: 0.2s; }
-        .tool-btn:hover { background: #f8f9fa; border-color: var(--primary); color: var(--primary); }
+        .tool-btn { font-size: 11px; padding: 6px 12px; border: 1px solid #ddd; color: #666; border-radius: 6px; background: #fff; cursor: pointer; }
         .search-box { display: flex; gap: 8px; position: sticky; top: 10px; background: white; padding: 10px 0; z-index: 100; border-bottom: 2px solid var(--bg); margin-bottom: 15px; }
-        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; transition: 0.3s; }
-        input:focus { border-color: var(--primary); }
+        input { flex: 1; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 16px; outline: none; }
         .add-btn { padding: 10px 20px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
         .category-title { background: #f8f9fa; border-left: 5px solid var(--primary); padding: 10px 15px; margin: 25px 0 12px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between; }
         .color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
-        .color-card { padding: 15px 8px; border: 1px solid #edf2f7; border-radius: 10px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.1s ease; background: #fff; position: relative; }
+        
+        /* 核心改动：色块样式 */
+        .color-card { padding: 15px 5px; border: 1px solid #edf2f7; border-radius: 10px; display: flex; flex-direction: column; align-items: center; background: #fff; position: relative; transition: 0.2s; }
         .color-card.is-owned { background: var(--owned-bg); border: 2px solid var(--owned-border); }
-        .count-badge { position: absolute; top: -5px; right: -5px; background: #ff7675; color: white; min-width: 20px; height: 20px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .color-no { font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; }
-        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; height: 2.4em; overflow: hidden; }
+        .color-no { font-size: 0.9rem; font-weight: 800; margin-bottom: 4px; pointer-events: none; }
+        .color-name { font-size: 0.65rem; color: #718096; text-align: center; line-height: 1.2; pointer-events: none; }
+        
+        /* 加减按钮样式 */
+        .controls { display: flex; gap: 15px; margin-top: 10px; }
+        .btn-mini { width: 28px; height: 28px; border-radius: 50%; border: 1px solid #ddd; background: white; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; color: #666; -webkit-tap-highlight-color: transparent; }
+        .btn-mini:active { background: #eee; }
+        .btn-plus { border-color: var(--primary); color: var(--primary); }
+        
+        /* 数量角标 */
+        .count-badge { position: absolute; top: -5px; right: -5px; background: #ff7675; color: white; min-width: 20px; height: 20px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 10; }
+        
         .summary-bar { margin-top: 30px; padding: 20px; background: var(--primary); color: white; border-radius: 12px; text-align: center; }
         .summary-grid { display: flex; justify-content: space-around; font-size: 0.85rem; font-weight: bold; }
         .summary-item span { display: block; font-size: 1.1rem; margin-top: 5px; }
@@ -31,15 +40,15 @@
 <body>
 
 <div class="container">
-    <div class="header"><h2>PanPastel 色号清单</h2></div>
+    <div class="header"><h2>PanPastel 库存清单</h2></div>
     
     <div class="backup-tools">
-        <button class="tool-btn" onclick="exportData()">📤 导出备份代码</button>
-        <button class="tool-btn" onclick="importData()">📥 导入备份数据</button>
+        <button class="tool-btn" onclick="exportData()">📤 导出代码</button>
+        <button class="tool-btn" onclick="importData()">📥 导入数据</button>
     </div>
 
     <div class="search-box">
-        <input type="text" id="colorInput" placeholder="输入色号或序列号 (例: 310.6)" inputmode="decimal">
+        <input type="text" id="colorInput" placeholder="输入色号(如 310.6)" inputmode="decimal">
         <button class="add-btn" onclick="toggleByInput()">增加</button>
     </div>
 
@@ -53,11 +62,11 @@
         </div>
     </div>
 
-    <button onclick="clearAll()" style="width:100%; margin-top:25px; background:none; border:none; color:#ccc; font-size:11px; cursor:pointer;">清空本地所有记录</button>
+    <button onclick="clearAll()" style="width:100%; margin-top:25px; background:none; border:none; color:#ccc; font-size:11px; cursor:pointer;">清空所有本地记录</button>
 </div>
 
 <script>
-    // 包含 114 个色号的完整数据库
+    // 数据库保持完整 (114色)
     const PAN_DATABASE = {
         "100.5": { name: "Titanium White", cat: "灰阶/基础" }, "800.5": { name: "Black", cat: "灰阶/基础" }, "820.2": { name: "Neutral Grey Ex.Dark", cat: "灰阶/基础" }, "820.5": { name: "Neutral Grey", cat: "灰阶/基础" }, "820.7": { name: "Neutral Grey Tint", cat: "灰阶/基础" }, "820.8": { name: "Neutral Grey Tint", cat: "灰阶/基础" }, "840.3": { name: "Payne's Grey Shade", cat: "灰阶/基础" }, "840.7": { name: "Payne's Grey Tint", cat: "灰阶/基础" }, "840.8": { name: "Payne's Grey Tint", cat: "灰阶/基础" }, "010": { name: "Colorless Blender", cat: "灰阶/基础" },
         "220.1": { name: "Hansa Yellow Ex.Dark", cat: "黄/橙系" }, "220.3": { name: "Hansa Yellow Shade", cat: "黄/橙系" }, "220.5": { name: "Hansa Yellow", cat: "黄/橙系" }, "220.8": { name: "Hansa Yellow Tint", cat: "黄/橙系" }, "223.5": { name: "Primary Yellow", cat: "黄/橙系" }, "250.1": { name: "Diarylide Yellow Ex.Dark", cat: "黄/橙系" }, "250.3": { name: "Diarylide Yellow Shade", cat: "黄/橙系" }, "250.5": { name: "Diarylide Yellow", cat: "黄/橙系" }, "250.8": { name: "Diarylide Yellow Tint", cat: "黄/橙系" }, "270.1": { name: "Yellow Ochre Ex.Dark", cat: "黄/橙系" }, "270.3": { name: "Yellow Ochre Shade", cat: "黄/橙系" }, "270.5": { name: "Yellow Ochre", cat: "黄/橙系" }, "270.8": { name: "Yellow Ochre Tint", cat: "黄/橙系" }, "280.1": { name: "Orange Ex.Dark", cat: "黄/橙系" }, "280.3": { name: "Orange Shade", cat: "黄/橙系" }, "280.5": { name: "Orange", cat: "黄/橙系" }, "280.6": { name: "Orange Medium", cat: "黄/橙系" }, "280.8": { name: "Orange Tint", cat: "黄/橙系" },
@@ -77,16 +86,12 @@
         const temp = document.createElement("textarea");
         document.body.appendChild(temp); temp.value = dataStr; temp.select();
         document.execCommand("copy"); document.body.removeChild(temp);
-        alert("备份代码已复制！请保存到备忘录。");
+        alert("备份代码已复制！");
     }
 
     function importData() {
-        const code = prompt("粘贴备份代码：");
-        if (code) {
-            try {
-                inventory = JSON.parse(atob(code)); render(); alert("导入成功！");
-            } catch (e) { alert("代码无效"); }
-        }
+        const code = prompt("粘贴代码：");
+        if (code) { try { inventory = JSON.parse(atob(code)); render(); } catch (e) { alert("代码无效"); } }
     }
 
     function render() {
@@ -101,7 +106,7 @@
 
         const order = ["灰阶/基础", "黄/橙系", "红/紫系", "蓝系", "绿系", "大地/棕色系", "珠光/金属系"];
         let totalItems = 0; let totalKinds = 0;
-        const totalPossible = Object.keys(PAN_DATABASE).length; // 114
+        const totalPossible = Object.keys(PAN_DATABASE).length;
 
         order.forEach(cName => {
             if (!cats[cName]) return;
@@ -110,20 +115,26 @@
             section.innerHTML = `<div class="category-title"><span>${cName}</span><span>${ownedInCat}/${cats[cName].length}</span></div>`;
             const grid = document.createElement('div');
             grid.className = 'color-grid';
+            
             cats[cName].forEach(no => {
                 const count = inventory[no] || 0;
                 if(count > 0) { totalKinds++; totalItems += count; }
                 const card = document.createElement('div');
                 card.className = `color-card ${count > 0 ? 'is-owned' : ''}`;
-                card.innerHTML = `${count > 0 ? `<div class="count-badge">${count}</div>` : ''}<div class="color-no">${no}</div><div class="color-name">${PAN_DATABASE[no].name}</div>`;
-                card.onclick = (e) => { add(no); };
-                card.oncontextmenu = (e) => { sub(no); e.preventDefault(); };
+                card.innerHTML = `
+                    ${count > 0 ? `<div class="count-badge">${count}</div>` : ''}
+                    <div class="color-no">${no}</div>
+                    <div class="color-name">${PAN_DATABASE[no].name}</div>
+                    <div class="controls">
+                        <div class="btn-mini" onclick="sub('${no}')">-</div>
+                        <div class="btn-mini btn-plus" onclick="add('${no}')">+</div>
+                    </div>
+                `;
                 grid.appendChild(card);
             });
             section.appendChild(grid); display.appendChild(section);
         });
 
-        // 重点更新这里：显示 已入 / 总数
         document.getElementById('statKinds').innerText = `${totalKinds} / ${totalPossible}`;
         document.getElementById('statTotal').innerText = totalItems;
         document.getElementById('statPercent').innerText = Math.round((totalKinds / totalPossible) * 100) + '%';
@@ -132,14 +143,16 @@
 
     function add(no) { inventory[no] = (inventory[no] || 0) + 1; render(); }
     function sub(no) { if(inventory[no] > 0) { inventory[no] -= 1; if(inventory[no] === 0) delete inventory[no]; } render(); }
+    
     function toggleByInput() {
         const input = document.getElementById('colorInput');
         let val = input.value.trim();
         if (SERIES_MAP[val]) val = SERIES_MAP[val];
-        if (PAN_DATABASE[val]) { add(val); } else { alert("找不到该色号"); }
+        if (PAN_DATABASE[val]) { add(val); } else { alert("找不到"); }
         input.value = '';
     }
-    function clearAll() { if(confirm("清空吗？")) { inventory = {}; render(); } }
+    
+    function clearAll() { if(confirm("确定吗？")) { inventory = {}; render(); } }
     render();
 </script>
 </body>
